@@ -21,16 +21,16 @@ type IngestionMode = 'gmail' | 'manual';
 const EmailIngester: React.FC<EmailIngesterProps> = ({ onReservationAdded }) => {
   const [mode, setMode] = useState<IngestionMode>('gmail');
   const [emailContent, setEmailContent] = useState('');
-  
+
   // Gmail & Auth State
   const [googleClientId, setGoogleClientId] = useState('');
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [tokenClient, setTokenClient] = useState<any>(null);
-  
+
   const [isScanning, setIsScanning] = useState(false);
   const [scanLog, setScanLog] = useState<string[]>([]);
-  const [showTroubleshoot, setShowTroubleshoot] = useState(true); 
-  
+  const [showTroubleshoot, setShowTroubleshoot] = useState(true);
+
   // Shared State
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -71,7 +71,7 @@ const EmailIngester: React.FC<EmailIngesterProps> = ({ onReservationAdded }) => 
 
     try {
       const extractedData = await parseReservationEmail(text);
-      
+
       if (extractedData) {
         const newReservation: Reservation = {
           id: Math.random().toString(36).substr(2, 9),
@@ -79,11 +79,11 @@ const EmailIngester: React.FC<EmailIngesterProps> = ({ onReservationAdded }) => 
           status: 'Nouveau',
           created_at: new Date().toISOString()
         };
-        
+
         onReservationAdded(newReservation);
         setSuccess(true);
         if (mode === 'manual') setEmailContent('');
-        
+
         setTimeout(() => setSuccess(false), 4000);
         return true;
       } else {
@@ -118,54 +118,54 @@ const EmailIngester: React.FC<EmailIngesterProps> = ({ onReservationAdded }) => 
 
   const handleGmailScan = async () => {
     if (isScanning || !accessToken) return;
-    
+
     setIsScanning(true);
     setScanLog([]);
     setError(null);
-    
+
     const addLog = (msg: string) => setScanLog(prev => [...prev, msg]);
 
     try {
-      addLog("Recherche d'emails (mot-clés: reservation, booking)...");
-      const messages = await searchEmails(accessToken, 'subject:(reservation OR booking OR confirmation OR order) newer_than:7d');
-      
+      addLog("Recherche d'emails (GetYourGuide, Civitatis, Chems Ayour, Reservation)...");
+      const messages = await searchEmails(accessToken, '(subject:(reservation OR booking OR confirmation OR order) OR "GetYourGuide" OR "Civitatis" OR "Chems Ayour") newer_than:7d');
+
       if (messages.length === 0) {
         addLog("Aucun email récent trouvé correspondant aux critères.");
       } else {
         addLog(`${messages.length} email(s) trouvés. Analyse en cours...`);
-        
+
         let processedCount = 0;
-        
+
         for (const msg of messages) {
-          addLog(`Téléchargement message ID: ${msg.id.substring(0,6)}...`);
+          addLog(`Téléchargement message ID: ${msg.id.substring(0, 6)}...`);
           try {
             const details = await getEmailDetails(accessToken, msg.id);
             const subject = getEmailSubject(details);
             const body = extractEmailBody(details);
-            
+
             addLog(`Analyse de: "${subject.substring(0, 30)}..."`);
-            
+
             // Send to Gemini
             const result = await processText(body);
-            
+
             if (result) {
               addLog("✅ Réservation détectée et ajoutée !");
               processedCount++;
             } else {
               addLog("ℹ️ Pas de données de réservation valides trouvées.");
             }
-            
+
             await new Promise(r => setTimeout(r, 800));
-            
+
           } catch (e) {
             console.error(e);
             addLog("❌ Erreur de lecture de l'email.");
           }
         }
-        
+
         addLog(`Terminé. ${processedCount} réservation(s) ajoutée(s).`);
       }
-      
+
     } catch (err: any) {
       console.error(err);
       setError(`Erreur lors du scan: ${err.message}`);
@@ -186,17 +186,15 @@ const EmailIngester: React.FC<EmailIngesterProps> = ({ onReservationAdded }) => 
       <div className="flex border-b border-gray-100">
         <button
           onClick={() => setMode('gmail')}
-          className={`flex-1 py-3 text-sm font-medium transition-colors ${
-            mode === 'gmail' ? 'bg-white text-indigo-600 border-b-2 border-indigo-600' : 'bg-gray-50 text-gray-500 hover:text-gray-700'
-          }`}
+          className={`flex-1 py-3 text-sm font-medium transition-colors ${mode === 'gmail' ? 'bg-white text-indigo-600 border-b-2 border-indigo-600' : 'bg-gray-50 text-gray-500 hover:text-gray-700'
+            }`}
         >
           Intégration Gmail
         </button>
         <button
           onClick={() => setMode('manual')}
-          className={`flex-1 py-3 text-sm font-medium transition-colors ${
-            mode === 'manual' ? 'bg-white text-indigo-600 border-b-2 border-indigo-600' : 'bg-gray-50 text-gray-500 hover:text-gray-700'
-          }`}
+          className={`flex-1 py-3 text-sm font-medium transition-colors ${mode === 'manual' ? 'bg-white text-indigo-600 border-b-2 border-indigo-600' : 'bg-gray-50 text-gray-500 hover:text-gray-700'
+            }`}
         >
           Saisie Manuelle
         </button>
@@ -213,7 +211,7 @@ const EmailIngester: React.FC<EmailIngesterProps> = ({ onReservationAdded }) => 
                 </div>
                 <div>
                   <h2 className="text-lg font-semibold text-gray-900">Simulateur d'Agent IA</h2>
-                  <p className="text-sm text-gray-500">Collez un email pour tester l'extraction</p>
+                  <p className="text-sm text-gray-500">Collez un email pour tester l'extraction <span className="text-xs bg-green-100 text-green-800 px-1 rounded">v2.0 REST API</span></p>
                 </div>
               </div>
               <button onClick={loadSample} className="text-sm text-indigo-600 hover:bg-indigo-50 px-3 py-1 rounded transition-colors">
@@ -240,9 +238,8 @@ const EmailIngester: React.FC<EmailIngesterProps> = ({ onReservationAdded }) => 
               <button
                 onClick={handleManualProcess}
                 disabled={isProcessing || !emailContent.trim()}
-                className={`flex items-center gap-2 px-6 py-2 rounded-lg text-white font-medium transition-all ${
-                  isProcessing || !emailContent.trim() ? 'bg-gray-300 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700'
-                }`}
+                className={`flex items-center gap-2 px-6 py-2 rounded-lg text-white font-medium transition-all ${isProcessing || !emailContent.trim() ? 'bg-gray-300 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700'
+                  }`}
               >
                 Traiter l'email <ArrowRight className="w-4 h-4" />
               </button>
@@ -253,11 +250,11 @@ const EmailIngester: React.FC<EmailIngesterProps> = ({ onReservationAdded }) => 
           <div className="flex flex-col text-left">
             {!accessToken ? (
               <div className="py-2">
-                
+
                 {/* ID INPUT */}
                 <div className="mb-4">
-                   <label className="block text-sm font-medium text-gray-700 mb-1">ID Client Google</label>
-                   <div className="relative">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">ID Client Google</label>
+                  <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                       <Lock className="h-4 w-4 text-gray-400" />
                     </div>
@@ -275,11 +272,10 @@ const EmailIngester: React.FC<EmailIngesterProps> = ({ onReservationAdded }) => 
                 <button
                   onClick={handleAuthClick}
                   disabled={!googleClientId}
-                  className={`w-full text-white font-bold py-3 px-4 rounded-xl shadow-md flex items-center justify-center gap-3 transition-all mb-4 ${
-                    !googleClientId 
-                    ? 'bg-gray-300 cursor-not-allowed' 
+                  className={`w-full text-white font-bold py-3 px-4 rounded-xl shadow-md flex items-center justify-center gap-3 transition-all mb-4 ${!googleClientId
+                    ? 'bg-gray-300 cursor-not-allowed'
                     : 'bg-indigo-600 hover:bg-indigo-700 hover:shadow-lg'
-                  }`}
+                    }`}
                 >
                   <LogIn className="w-5 h-5" />
                   Autoriser l'accès Gmail
@@ -302,19 +298,19 @@ const EmailIngester: React.FC<EmailIngesterProps> = ({ onReservationAdded }) => 
 
                   {showTroubleshoot && (
                     <div className="mt-3 pt-3 border-t border-amber-200 text-sm text-amber-900 space-y-4">
-                      
+
                       <div className="flex items-start gap-3 bg-white p-3 rounded border border-amber-100">
                         <div className="min-w-[20px] font-bold text-amber-600 mt-0.5">1</div>
                         <div>
                           <strong className="block text-gray-900">L'URL est incorrecte</strong>
                           <span className="text-gray-600 text-xs">Copiez cette URL exacte et ajoutez-la dans "Origines JavaScript autorisées" :</span>
                           <div className="flex items-center mt-2 gap-2">
-                             <code className="flex-1 bg-gray-100 p-2 rounded text-xs font-mono break-all select-all border border-gray-300">
-                                {currentOrigin}
-                             </code>
-                             <button onClick={() => navigator.clipboard.writeText(currentOrigin)} className="p-2 hover:bg-gray-100 rounded text-amber-600" title="Copier">
-                               <Key className="w-4 h-4" />
-                             </button>
+                            <code className="flex-1 bg-gray-100 p-2 rounded text-xs font-mono break-all select-all border border-gray-300">
+                              {currentOrigin}
+                            </code>
+                            <button onClick={() => navigator.clipboard.writeText(currentOrigin)} className="p-2 hover:bg-gray-100 rounded text-amber-600" title="Copier">
+                              <Key className="w-4 h-4" />
+                            </button>
                           </div>
                         </div>
                       </div>
@@ -325,8 +321,8 @@ const EmailIngester: React.FC<EmailIngesterProps> = ({ onReservationAdded }) => 
                           <strong className="block text-gray-900">Le "/" de fin (Trailing Slash)</strong>
                           <span className="text-gray-600 text-xs">Vérifiez dans Google Cloud que l'URL ne finit PAS par <code>/</code>.</span>
                           <div className="mt-1 text-xs">
-                             <span className="text-red-500 mr-2">❌ ...webcontainer.io/</span>
-                             <span className="text-green-600 font-bold">✅ ...webcontainer.io</span>
+                            <span className="text-red-500 mr-2">❌ ...webcontainer.io/</span>
+                            <span className="text-green-600 font-bold">✅ ...webcontainer.io</span>
                           </div>
                         </div>
                       </div>
@@ -343,7 +339,7 @@ const EmailIngester: React.FC<EmailIngesterProps> = ({ onReservationAdded }) => 
                           </span>
                         </div>
                       </div>
-                      
+
                       <div className="text-xs text-center text-amber-700 italic border-t border-amber-200 pt-2 mt-2">
                         Après modification dans Google Cloud, attendez 5 minutes (propagation DNS).
                       </div>
@@ -380,9 +376,8 @@ const EmailIngester: React.FC<EmailIngesterProps> = ({ onReservationAdded }) => 
                 <button
                   onClick={handleGmailScan}
                   disabled={isScanning}
-                  className={`w-full flex items-center justify-center gap-2 py-3 rounded-lg text-white font-medium transition-all ${
-                    isScanning ? 'bg-gray-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 shadow-md'
-                  }`}
+                  className={`w-full flex items-center justify-center gap-2 py-3 rounded-lg text-white font-medium transition-all ${isScanning ? 'bg-gray-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 shadow-md'
+                    }`}
                 >
                   {isScanning ? (
                     <>
@@ -402,9 +397,8 @@ const EmailIngester: React.FC<EmailIngesterProps> = ({ onReservationAdded }) => 
 
       {/* Global Status Footer */}
       {(success || error) && (
-        <div className={`px-6 py-3 text-sm font-medium flex items-center ${
-          success ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
-        }`}>
+        <div className={`px-6 py-3 text-sm font-medium flex items-center ${success ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
+          }`}>
           {success ? (
             <><CheckCircle className="w-4 h-4 mr-2" /> Action terminée avec succès !</>
           ) : (

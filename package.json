@@ -10,11 +10,10 @@
   },
   "dependencies": {
     "date-fns": "^4.1.0",
-    "@google/genai": "^1.33.0",
-    "recharts": "^3.5.1",
-    "react-dom": "^19.2.3",
+    "lucide-react": "^0.561.0",
     "react": "^19.2.3",
-    "lucide-react": "^0.561.0"
+    "react-dom": "^19.2.3",
+    "recharts": "^3.5.1"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
