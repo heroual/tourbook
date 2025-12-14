@@ -53,6 +53,53 @@ export const parseReservationEmailRest = async (emailContent: string): Promise<E
       - Clean up price strings (remove currency symbols like "DH", "د.م.", "€").
       - Extract 'email' and 'phone' if present.
       - **CRITICAL**: Do NOT extract labels as values. For example, if text says "Name: John", extract "John", NOT "Name". If text says "Client details", do NOT extract "details".
+
+      EXAMPLES:
+
+      Input:
+      "Chems Ayour - Reservation Confirmed
+      Reference: CA-12345
+      Client: John Doe
+      Date: 2025-12-25
+      Pax: 2 Adults, 1 Child
+      Menu: Tradition
+      Total: 150€
+      Phone: +33612345678"
+
+      Output:
+      {
+        "platform": "Chems Ayour",
+        "reservation_id": "CA-12345",
+        "customer_name": "John Doe",
+        "activity_date": "2025-12-25",
+        "people_count": 3,
+        "adults_count": 2,
+        "children_count": 1,
+        "menu_choice": "Tradition",
+        "total_amount": 150,
+        "phone": "+33612345678",
+        "email": null,
+        "transport_included": false
+      }
+
+      Input:
+      "GetYourGuide Booking GYG889900
+      Activity: Camel Ride
+      Option: Sunset
+      Traveler: Sarah Connor
+      Participants: 2
+      Price: 50.00 EUR"
+
+      Output:
+      {
+        "platform": "GetYourGuide",
+        "reservation_id": "GYG889900",
+        "customer_name": "Sarah Connor",
+        "activity_type": "Camel Ride - Sunset",
+        "people_count": 2,
+        "total_amount": 50,
+        "payment_status": "Payé"
+      }
       
       Email Content:
       ${emailContent}

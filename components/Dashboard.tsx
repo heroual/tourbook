@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Reservation } from '../types';
-import { Search, Filter, MoreHorizontal, Bus, Calendar, DollarSign, ExternalLink } from 'lucide-react';
+import { Search, Filter, MoreHorizontal, Bus, Calendar, DollarSign, ExternalLink, X, User, Mail, Phone, MapPin, Utensils, CreditCard, Clock } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface DashboardProps {
@@ -12,6 +12,7 @@ const Dashboard: React.FC<DashboardProps> = ({ reservations, onStatusChange }) =
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [platformFilter, setPlatformFilter] = useState<string>('all');
+  const [selectedRes, setSelectedRes] = useState<Reservation | null>(null);
 
   // Filter Logic
   const filteredReservations = reservations.filter((res) => {
@@ -108,7 +109,11 @@ const Dashboard: React.FC<DashboardProps> = ({ reservations, onStatusChange }) =
           <tbody className="divide-y divide-gray-100">
             {filteredReservations.length > 0 ? (
               filteredReservations.map((res) => (
-                <tr key={res.id} className="hover:bg-gray-50 transition-colors group">
+                <tr
+                  key={res.id}
+                  onClick={() => setSelectedRes(res)}
+                  className="hover:bg-gray-50 transition-colors group cursor-pointer"
+                >
                   <td className="px-6 py-4">
                     <div className="font-medium text-gray-900" title={res.email || res.phone || ''}>
                       {res.customer_name}
@@ -201,6 +206,277 @@ const Dashboard: React.FC<DashboardProps> = ({ reservations, onStatusChange }) =
           </tbody>
         </table>
       </div>
+
+      {/* DETAILS MODAL */}
+      {selectedRes && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="bg-indigo-600 p-6 text-white flex justify-between items-start">
+              <div>
+                <h2 className="text-xl font-bold flex items-center gap-2">
+                  <User className="w-5 h-5" /> {selectedRes.customer_name}
+                </h2>
+                <p className="text-indigo-100 text-sm mt-1 flex items-center gap-2">
+                  <span className="bg-white/20 px-2 py-0.5 rounded text-xs font-mono">{selectedRes.reservation_id}</span>
+                  <span>via {selectedRes.platform}</span>
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedRes(null)}
+                className="text-white/80 hover:text-white hover:bg-white/10 p-2 rounded-full transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+
+              {/* Contact Info */}
+              <div className="space-y-4">
+                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Contact</h4>
+
+                <div className="flex items-center gap-3 text-gray-700">
+                  <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
+                    <Mail className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Email</p>
+                    <p className="font-medium">{selectedRes.email || 'Non renseigné'}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 text-gray-700">
+                  <div className="w-8 h-8 rounded-full bg-green-50 flex items-center justify-center text-green-600">
+                    <Phone className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Téléphone</p>
+                    <p className="font-medium">{selectedRes.phone || 'Non renseigné'}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 text-gray-700">
+                  <div className="w-8 h-8 rounded-full bg-purple-50 flex items-center justify-center text-purple-600">
+                    <MapPin className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Lieu de prise en charge</p>
+                    <p className="font-medium">{selectedRes.pickup_address || 'Non inclus'}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Activity Info */}
+              <div className="space-y-4">
+                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Détails Activité</h4>
+
+                <div className="flex items-center gap-3 text-gray-700">
+                  <div className="w-8 h-8 rounded-full bg-orange-50 flex items-center justify-center text-orange-600">
+                    <Calendar className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Date & Activité</p>
+                    <p className="font-medium">{selectedRes.activity_date}</p>
+                    <p className="text-sm text-gray-600">{selectedRes.activity_type}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 text-gray-700">
+                  <div className="w-8 h-8 rounded-full bg-pink-50 flex items-center justify-center text-pink-600">
+                    <User className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Participants</p>
+                    <p className="font-medium">
+                      {selectedRes.people_count} Personnes
+                      <span className="text-sm text-gray-500 font-normal ml-1">
+                        ({selectedRes.adults_count || 0} Adultes, {selectedRes.children_count || 0} Enfants)
+                      </span>
+                    </p>
+                  </div>
+                </div>
+
+                {selectedRes.menu_choice && (
+                  <div className="flex items-center gap-3 text-gray-700">
+                    <div className="w-8 h-8 rounded-full bg-yellow-50 flex items-center justify-center text-yellow-600">
+                      <Utensils className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Choix du Menu</p>
+                      <p className="font-medium text-yellow-700 bg-yellow-50 px-2 py-0.5 rounded inline-block">
+                        {selectedRes.menu_choice}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Payment & Status */}
+              <div className="col-span-1 md:col-span-2 border-t border-gray-100 pt-4 mt-2 flex justify-between items-center bg-gray-50 p-4 rounded-xl">
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">Montant Total</p>
+                  <p className="text-2xl font-bold text-gray-900">{selectedRes.total_amount} €</p>
+                  <p className={`text-xs font-bold uppercase ${getPaymentStatusColor(selectedRes.payment_status)}`}>
+                    {selectedRes.payment_status}
+                  </p>
+                </div>
+
+                <div className="text-right">
+                  <p className="text-xs text-gray-500 mb-1">Statut Réservation</p>
+                  <select
+                    value={selectedRes.status}
+                    onChange={(e) => onStatusChange(selectedRes.id, e.target.value as any)}
+                    className={`text-sm px-3 py-1.5 rounded-lg border ${getStatusColor(selectedRes.status)} font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500`}
+                  >
+                    <option value="Nouveau">Nouveau</option>
+                    <option value="Confirmé">Confirmé</option>
+                    <option value="En cours">En cours</option>
+                    <option value="Terminé">Terminé</option>
+                  </select>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      )}
+      {/* DETAILS MODAL */}
+      {selectedRes && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="bg-indigo-600 p-6 text-white flex justify-between items-start">
+              <div>
+                <h2 className="text-xl font-bold flex items-center gap-2">
+                  <User className="w-5 h-5" /> {selectedRes.customer_name}
+                </h2>
+                <p className="text-indigo-100 text-sm mt-1 flex items-center gap-2">
+                  <span className="bg-white/20 px-2 py-0.5 rounded text-xs font-mono">{selectedRes.reservation_id}</span>
+                  <span>via {selectedRes.platform}</span>
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedRes(null)}
+                className="text-white/80 hover:text-white hover:bg-white/10 p-2 rounded-full transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+
+              {/* Contact Info */}
+              <div className="space-y-4">
+                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Contact</h4>
+
+                <div className="flex items-center gap-3 text-gray-700">
+                  <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
+                    <Mail className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Email</p>
+                    <p className="font-medium">{selectedRes.email || 'Non renseigné'}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 text-gray-700">
+                  <div className="w-8 h-8 rounded-full bg-green-50 flex items-center justify-center text-green-600">
+                    <Phone className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Téléphone</p>
+                    <p className="font-medium">{selectedRes.phone || 'Non renseigné'}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 text-gray-700">
+                  <div className="w-8 h-8 rounded-full bg-purple-50 flex items-center justify-center text-purple-600">
+                    <MapPin className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Lieu de prise en charge</p>
+                    <p className="font-medium">{selectedRes.pickup_address || 'Non inclus'}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Activity Info */}
+              <div className="space-y-4">
+                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Détails Activité</h4>
+
+                <div className="flex items-center gap-3 text-gray-700">
+                  <div className="w-8 h-8 rounded-full bg-orange-50 flex items-center justify-center text-orange-600">
+                    <Calendar className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Date & Activité</p>
+                    <p className="font-medium">{selectedRes.activity_date}</p>
+                    <p className="text-sm text-gray-600">{selectedRes.activity_type}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 text-gray-700">
+                  <div className="w-8 h-8 rounded-full bg-pink-50 flex items-center justify-center text-pink-600">
+                    <User className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Participants</p>
+                    <p className="font-medium">
+                      {selectedRes.people_count} Personnes
+                      <span className="text-sm text-gray-500 font-normal ml-1">
+                        ({selectedRes.adults_count || 0} Adultes, {selectedRes.children_count || 0} Enfants)
+                      </span>
+                    </p>
+                  </div>
+                </div>
+
+                {selectedRes.menu_choice && (
+                  <div className="flex items-center gap-3 text-gray-700">
+                    <div className="w-8 h-8 rounded-full bg-yellow-50 flex items-center justify-center text-yellow-600">
+                      <Utensils className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Choix du Menu</p>
+                      <p className="font-medium text-yellow-700 bg-yellow-50 px-2 py-0.5 rounded inline-block">
+                        {selectedRes.menu_choice}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Payment & Status */}
+              <div className="col-span-1 md:col-span-2 border-t border-gray-100 pt-4 mt-2 flex justify-between items-center bg-gray-50 p-4 rounded-xl">
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">Montant Total</p>
+                  <p className="text-2xl font-bold text-gray-900">{selectedRes.total_amount} €</p>
+                  <p className={`text-xs font-bold uppercase ${getPaymentStatusColor(selectedRes.payment_status)}`}>
+                    {selectedRes.payment_status}
+                  </p>
+                </div>
+
+                <div className="text-right">
+                  <p className="text-xs text-gray-500 mb-1">Statut Réservation</p>
+                  <select
+                    value={selectedRes.status}
+                    onChange={(e) => onStatusChange(selectedRes.id, e.target.value as any)}
+                    className={`text-sm px-3 py-1.5 rounded-lg border ${getStatusColor(selectedRes.status)} font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500`}
+                  >
+                    <option value="Nouveau">Nouveau</option>
+                    <option value="Confirmé">Confirmé</option>
+                    <option value="En cours">En cours</option>
+                    <option value="Terminé">Terminé</option>
+                  </select>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
