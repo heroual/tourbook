@@ -4,7 +4,7 @@ const apiKey = process.env.API_KEY || '';
 
 
 
-export const parseReservationEmail = async (emailContent: string): Promise<ExtractionResult | null> => {
+export const parseReservationEmailRest = async (emailContent: string): Promise<ExtractionResult | null> => {
   if (!apiKey) {
     console.error("API Key is missing");
     throw new Error("API Key is missing. Please check your environment configuration.");
@@ -18,7 +18,7 @@ export const parseReservationEmail = async (emailContent: string): Promise<Extra
 
     // Direct REST API call to bypass SDK issues
     console.log("🚀 USING REST API VERSION - SDK REMOVED");
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
 
     const response = await fetch(url, {
       method: 'POST',

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Mail, ArrowRight, Loader2, Sparkles, CheckCircle, AlertCircle, RefreshCw, Key, Shield, LogIn, Lock, HelpCircle, AlertTriangle, ExternalLink, XCircle, Cookie } from 'lucide-react';
-import { parseReservationEmail } from '../services/geminiService';
+import { parseReservationEmailRest } from '../services/geminiService';
 import { searchEmails, getEmailDetails, extractEmailBody, getEmailSubject } from '../services/gmailService';
 import { Reservation } from '../types';
 import { SAMPLE_EMAILS } from '../constants';
@@ -70,7 +70,7 @@ const EmailIngester: React.FC<EmailIngesterProps> = ({ onReservationAdded }) => 
     setSuccess(false);
 
     try {
-      const extractedData = await parseReservationEmail(text);
+      const extractedData = await parseReservationEmailRest(text);
 
       if (extractedData) {
         const newReservation: Reservation = {
