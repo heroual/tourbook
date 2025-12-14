@@ -50,6 +50,7 @@ export const parseReservationEmailRest = async (emailContent: string): Promise<E
       - Ensure dates are strictly YYYY-MM-DD.
       - For 'people_count', sum up adults and children.
       - For 'transport_included', return true if "Pick-up" or "Transfert" is mentioned/included.
+      - **activity_type**: Extract the FULL name of the activity/tour. IMPORTANT: Include any selected OPTIONS, VARIANTS, or TIME SLOTS (e.g., "Camel Ride - Sunset", "City Tour - Private", "Quad - Morning").
       - Clean up price strings (remove currency symbols like "DH", "د.م.", "€").
       - Extract 'email' and 'phone' if present.
       - **CRITICAL**: Do NOT extract labels as values. For example, if text says "Name: John", extract "John", NOT "Name". If text says "Client details", do NOT extract "details".
@@ -238,7 +239,13 @@ const parseWithRegex = (text: string): ExtractionResult => {
     result.total_amount = parseFloat(cleanPrice) || 0;
   }
 
-  // 6. Extract Pickup
+  // 5. Extract Activity Name
+  const activityMatch = text.match(/(?:Activity|Tour|Item|Option|Activité|Détails activité)[:\s]*([^\n]+)/i);
+  if (activityMatch && activityMatch[1].trim().length > 3) {
+    result.activity_type = activityMatch[1].trim();
+  }
+
+  // 6. Extract Transport / Pickup
   const pickupMatch = text.match(/(?:Pick-up|Lieu de départ|Meeting point)[:\s]*([^\n]+)/i);
   if (pickupMatch) {
     result.pickup_address = pickupMatch[1].trim();
