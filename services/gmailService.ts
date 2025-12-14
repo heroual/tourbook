@@ -19,7 +19,7 @@ export interface GmailMessageFull {
 
 export const searchEmails = async (accessToken: string, query: string): Promise<GmailMessageSummary[]> => {
   const url = `${GMAIL_API_BASE}/messages?q=${encodeURIComponent(query)}&maxResults=10`;
-  
+
   const response = await fetch(url, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -27,7 +27,7 @@ export const searchEmails = async (accessToken: string, query: string): Promise<
   });
 
   if (!response.ok) {
-    throw new Error(`Gmail API error: ${response.statusText}`);
+    throw new Error(`Gmail API error: ${response.status} ${response.statusText}`);
   }
 
   const data = await response.json();
@@ -36,7 +36,7 @@ export const searchEmails = async (accessToken: string, query: string): Promise<
 
 export const getEmailDetails = async (accessToken: string, messageId: string): Promise<GmailMessageFull> => {
   const url = `${GMAIL_API_BASE}/messages/${messageId}`;
-  
+
   const response = await fetch(url, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -44,7 +44,7 @@ export const getEmailDetails = async (accessToken: string, messageId: string): P
   });
 
   if (!response.ok) {
-    throw new Error(`Gmail API error: ${response.statusText}`);
+    throw new Error(`Gmail API error: ${response.status} ${response.statusText}`);
   }
 
   return response.json();
@@ -71,7 +71,7 @@ export const extractEmailBody = (message: GmailMessageFull): string => {
 
   // Decode Base64Url
   const decoded = atob(encodedBody.replace(/-/g, '+').replace(/_/g, '/'));
-  
+
   // Basic UTF-8 fix if needed (though atob usually handles simple ASCII, specialized decoding might be needed for complex charsets)
   try {
     return decodeURIComponent(escape(decoded));

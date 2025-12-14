@@ -230,8 +230,17 @@ const EmailIngester: React.FC<EmailIngesterProps> = ({ onReservationAdded }) => 
 
     } catch (err: any) {
       console.error(err);
-      setError(`Erreur lors du scan: ${err.message}`);
-      addLog("Erreur critique lors du scan.");
+      const errorMessage = err.message || "";
+
+      if (errorMessage.includes("401") || errorMessage.includes("403")) {
+        setError("Session expirée. Veuillez vous reconnecter.");
+        setAccessToken(null);
+        localStorage.removeItem('google_access_token');
+        addLog("❌ Session expirée. Déconnexion...");
+      } else {
+        setError(`Erreur lors du scan: ${errorMessage}`);
+        addLog("❌ Erreur critique lors du scan.");
+      }
     } finally {
       setIsScanning(false);
     }
