@@ -1,0 +1,5 @@
+{
+  "name": "TourBook AI Agent",
+  "description": "An intelligent dashboard for managing tourist reservations extracted automatically from emails using Gemini AI.",
+  "requestFramePermissions": []
+}
