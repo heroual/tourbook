@@ -23,7 +23,7 @@ const EmailIngester: React.FC<EmailIngesterProps> = ({ onReservationAdded }) => 
   const [emailContent, setEmailContent] = useState('');
 
   // Gmail & Auth State
-  const [googleClientId, setGoogleClientId] = useState('');
+  const [googleClientId, setGoogleClientId] = useState('1088380297058-bcviork8fk99bksa328h3btcfc5fltht.apps.googleusercontent.com');
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [tokenClient, setTokenClient] = useState<any>(null);
 
@@ -43,6 +43,16 @@ const EmailIngester: React.FC<EmailIngesterProps> = ({ onReservationAdded }) => 
 
   const currentOrigin = typeof window !== 'undefined' ? window.location.origin : '...';
 
+  // Load Token from LocalStorage on Mount
+  useEffect(() => {
+    const storedToken = localStorage.getItem('google_access_token');
+    if (storedToken) {
+      setAccessToken(storedToken);
+      setScanLog(prev => [...prev, "Token récupéré du stockage local."]);
+      setShowTroubleshoot(false);
+    }
+  }, []);
+
   // Initialize Google Identity Services
   useEffect(() => {
     if (window.google && googleClientId) {
@@ -53,6 +63,7 @@ const EmailIngester: React.FC<EmailIngesterProps> = ({ onReservationAdded }) => 
           callback: (response: any) => {
             if (response.access_token) {
               setAccessToken(response.access_token);
+              localStorage.setItem('google_access_token', response.access_token); // Persist token
               setScanLog(prev => [...prev, "Authentification réussie ! Token reçu."]);
               setError(null);
               setShowTroubleshoot(false);
