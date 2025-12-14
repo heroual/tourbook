@@ -52,6 +52,7 @@ export const parseReservationEmailRest = async (emailContent: string): Promise<E
       - For 'transport_included', return true if "Pick-up" or "Transfert" is mentioned/included.
       - Clean up price strings (remove currency symbols like "DH", "د.م.", "€").
       - Extract 'email' and 'phone' if present.
+      - **CRITICAL**: Do NOT extract labels as values. For example, if text says "Name: John", extract "John", NOT "Name". If text says "Client details", do NOT extract "details".
       
       Email Content:
       ${emailContent}
@@ -128,9 +129,17 @@ const parseWithRegex = (text: string): ExtractionResult => {
   const refMatch = text.match(/(?:Reference Number|Réservation N°|Booking Reference|Order ID)[:\s#]*([A-Z0-9]+)/i);
   if (refMatch) result.reservation_id = refMatch[1];
 
-  // 3. Extract Name
-  const nameMatch = text.match(/(?:Client|Customer|Nom|Name)[:\s]*([A-Za-z\s]+)/i);
-  if (nameMatch) result.customer_name = nameMatch[1].trim();
+  // 3. Extract Name (Improved)
+  // Look for "Name:" or "Client:" followed by text that is NOT a common label
+  const nameMatch = text.match(/(?:Client|Customer|Nom|Name|Traveler)[:\s]*([A-Za-z\s]+)(?:\n|$)/i);
+  if (nameMatch) {
+    const rawName = nameMatch[1].trim();
+    // Filter out common false positives (labels captured as values)
+    const invalidNames = ["details", "email", "phone", "telephone", "adults", "participants", "total", "price", "date", "bre de participant"];
+    if (!invalidNames.includes(rawName.toLowerCase()) && rawName.length > 2) {
+      result.customer_name = rawName;
+    }
+  }
 
   // 4. Extract People Count & Breakdown
   // Matches: "2 x Adults", "2 Adults", "Adultes: 2"
