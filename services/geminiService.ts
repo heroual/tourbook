@@ -100,6 +100,32 @@ export const parseReservationEmailRest = async (emailContent: string): Promise<E
         "total_amount": 50,
         "payment_status": "Payé"
       }
+
+      Input:
+      "Agadir / Taghazout : Chems Ayour Fantasia Show & Dinner
+      Numéro de référence: GYG6H8L4LKA5
+      Date: February 4, 2026 8:00 PM
+      Nombre de participant·es: 2 x Adults
+      Client·e principal·e: Kira Jeger
+      customer-lduj6qjwj3tdgl47@reply.getyourguide.com
+      N° de téléphone: +41791727477
+      Prix: 1 200,00 د.م."
+
+      Output:
+      {
+        "platform": "GetYourGuide",
+        "reservation_id": "GYG6H8L4LKA5",
+        "customer_name": "Kira Jeger",
+        "activity_type": "Chems Ayour Fantasia Show & Dinner",
+        "activity_date": "2026-02-04",
+        "people_count": 2,
+        "adults_count": 2,
+        "children_count": 0,
+        "email": "customer-lduj6qjwj3tdgl47@reply.getyourguide.com",
+        "phone": "+41791727477",
+        "total_amount": 1200,
+        "payment_status": "Payé"
+      }
       
       Email Content:
       ${emailContent}
@@ -173,12 +199,12 @@ const parseWithRegex = (text: string): ExtractionResult => {
   else if (text.includes("Viator")) result.platform = "Viator";
 
   // 2. Extract Reservation ID
-  const refMatch = text.match(/(?:Reference Number|Réservation N°|Booking Reference|Order ID)[:\s#]*([A-Z0-9]+)/i);
+  const refMatch = text.match(/(?:Reference Number|Réservation N°|Booking Reference|Order ID|Numéro de référence)[:\s#]*([A-Z0-9]+)/i);
   if (refMatch) result.reservation_id = refMatch[1];
 
   // 3. Extract Name (Improved)
   // Look for "Name:" or "Client:" followed by text that is NOT a common label
-  const nameMatch = text.match(/(?:Client|Customer|Nom|Name|Traveler)[:\s]*([A-Za-z\s]+)(?:\n|$)/i);
+  const nameMatch = text.match(/(?:Client|Customer|Nom|Name|Traveler|Client·e principal·e)[:\s]*([A-Za-z\s]+)(?:\n|$)/i);
   if (nameMatch) {
     const rawName = nameMatch[1].trim();
     // Filter out common false positives (labels captured as values)
