@@ -15,6 +15,9 @@ export interface Reservation {
   notes: string | null;
   status: 'Nouveau' | 'Confirmé' | 'En cours' | 'Terminé';
   created_at: string;
+  adults_count?: number;
+  children_count?: number;
+  menu_choice?: string;
 }
 
 export type ReservationStatus = Reservation['status'];
@@ -33,4 +36,7 @@ export interface ExtractionResult {
   total_amount: number;
   payment_status: string;
   notes: string;
+  adults_count?: number;
+  children_count?: number;
+  menu_choice?: string;
 }

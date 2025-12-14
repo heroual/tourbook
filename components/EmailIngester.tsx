@@ -36,6 +36,11 @@ const EmailIngester: React.FC<EmailIngesterProps> = ({ onReservationAdded }) => 
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
+  // Automation State
+  const [autoScanEnabled, setAutoScanEnabled] = useState(false);
+  const [lastAutoScan, setLastAutoScan] = useState<Date | null>(null);
+  const AUTO_SCAN_INTERVAL = 10 * 60 * 1000; // 10 minutes
+
   const currentOrigin = typeof window !== 'undefined' ? window.location.origin : '...';
 
   // Initialize Google Identity Services
@@ -64,6 +69,41 @@ const EmailIngester: React.FC<EmailIngesterProps> = ({ onReservationAdded }) => 
     }
   }, [googleClientId]);
 
+  // Auto-Scan Effect
+  useEffect(() => {
+    let intervalId: NodeJS.Timeout;
+
+    if (autoScanEnabled && accessToken) {
+      // Initial scan when enabled
+      handleGmailScan();
+
+      intervalId = setInterval(() => {
+        console.log("Auto-scan triggered...");
+        handleGmailScan();
+        setLastAutoScan(new Date());
+      }, AUTO_SCAN_INTERVAL);
+    }
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [autoScanEnabled, accessToken]);
+
+  // Validation Helper
+  const validateReservation = (res: Reservation): { isValid: boolean; errors: string[] } => {
+    const errors: string[] = [];
+
+    if (!res.customer_name || res.customer_name.trim() === "") errors.push("Nom du client manquant");
+    if (!res.activity_date) errors.push("Date de l'activité manquante");
+    if (res.total_amount <= 0) errors.push("Montant total invalide");
+
+    // Date validation (simple check)
+    const date = new Date(res.activity_date);
+    if (isNaN(date.getTime())) errors.push("Format de date invalide");
+
+    return { isValid: errors.length === 0, errors };
+  };
+
   // Helper to process text (used by both modes)
   const processText = async (text: string) => {
     setIsProcessing(true);
@@ -77,8 +117,19 @@ const EmailIngester: React.FC<EmailIngesterProps> = ({ onReservationAdded }) => 
           id: Math.random().toString(36).substr(2, 9),
           ...extractedData,
           status: 'Nouveau',
-          created_at: new Date().toISOString()
+          created_at: new Date().toISOString(),
+          adults_count: extractedData.adults_count,
+          children_count: extractedData.children_count,
+          menu_choice: extractedData.menu_choice
         };
+
+        const validation = validateReservation(newReservation);
+
+        if (!validation.isValid) {
+          setError(`Validation échouée: ${validation.errors.join(", ")}`);
+          newReservation.status = 'En cours'; // Mark as needing attention
+          newReservation.notes += ` [Validation Errors: ${validation.errors.join(", ")}]`;
+        }
 
         onReservationAdded(newReservation);
         setSuccess(true);
@@ -355,9 +406,19 @@ const EmailIngester: React.FC<EmailIngesterProps> = ({ onReservationAdded }) => 
                     <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
                     <span className="text-sm font-medium text-green-800">Connecté avec succès</span>
                   </div>
-                  <button onClick={() => setAccessToken(null)} className="text-xs text-green-700 hover:underline">
-                    Déconnecter
-                  </button>
+                  <div className="flex items-center gap-4">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <div className="relative">
+                        <input type="checkbox" className="sr-only" checked={autoScanEnabled} onChange={() => setAutoScanEnabled(!autoScanEnabled)} />
+                        <div className={`block w-10 h-6 rounded-full transition-colors ${autoScanEnabled ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+                        <div className={`dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${autoScanEnabled ? 'transform translate-x-4' : ''}`}></div>
+                      </div>
+                      <span className="text-xs font-medium text-gray-700">Auto-Scan (10m)</span>
+                    </label>
+                    <button onClick={() => setAccessToken(null)} className="text-xs text-green-700 hover:underline">
+                      Déconnecter
+                    </button>
+                  </div>
                 </div>
 
                 <div className="bg-gray-900 rounded-lg p-4 h-48 overflow-y-auto text-left font-mono text-xs mb-4 shadow-inner custom-scrollbar">

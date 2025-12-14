@@ -35,19 +35,23 @@ export const parseReservationEmailRest = async (emailContent: string): Promise<E
          - Extract the "Reference Number" (e.g., GYG...) as 'reservation_id'.
          - Extract the "Client" name.
          - Extract the "Pickup" location if mentioned.
+         - Extract "Adults" and "Children" counts separately.
       2. **Chems Ayour**:
          - Extract "Réservation N°" as 'reservation_id'.
          - Extract "Lieu de Pick-up" or "Pick-up" as 'pickup_address'.
          - Extract "Total" as 'total_amount'.
+         - Extract "Choix du menu" as 'menu_choice'.
+         - Extract "Adultes" and "Enfants" counts separately.
       3. **Civitatis**:
          - Extract the Civitatis booking reference.
       
       General Rules:
       - If a field is missing, return null or an empty string/0 as appropriate.
       - Ensure dates are strictly YYYY-MM-DD.
-      - For 'people_count', sum up adults and children (e.g., "2 x Adults" + "1 x Child" = 3).
+      - For 'people_count', sum up adults and children.
       - For 'transport_included', return true if "Pick-up" or "Transfert" is mentioned/included.
       - Clean up price strings (remove currency symbols like "DH", "د.م.", "€").
+      - Extract 'email' and 'phone' if present.
       
       Email Content:
       ${emailContent}
@@ -108,7 +112,10 @@ const parseWithRegex = (text: string): ExtractionResult => {
     pickup_address: "",
     total_amount: 0,
     payment_status: "Non payé",
-    notes: "Extracted via Regex Fallback"
+    notes: "Extracted via Regex Fallback",
+    adults_count: 0,
+    children_count: 0,
+    menu_choice: ""
   };
 
   // 1. Detect Platform
@@ -125,14 +132,20 @@ const parseWithRegex = (text: string): ExtractionResult => {
   const nameMatch = text.match(/(?:Client|Customer|Nom|Name)[:\s]*([A-Za-z\s]+)/i);
   if (nameMatch) result.customer_name = nameMatch[1].trim();
 
-  // 4. Extract People Count
+  // 4. Extract People Count & Breakdown
   // Matches: "2 x Adults", "2 Adults", "Adultes: 2"
-  const adultMatch = text.match(/(\d+)\s*x?\s*(?:Adults?|Adultes?)/i);
-  const childMatch = text.match(/(\d+)\s*x?\s*(?:Children?|Enfants?)/i);
-  let count = 0;
-  if (adultMatch) count += parseInt(adultMatch[1]);
-  if (childMatch) count += parseInt(childMatch[1]);
-  if (count > 0) result.people_count = count;
+  const adultMatch = text.match(/(\d+)\s*x?\s*(?:Adults?|Adultes?)|(?:Adults?|Adultes?)[:\s]*(\d+)/i);
+  const childMatch = text.match(/(\d+)\s*x?\s*(?:Children?|Enfants?)|(?:Children?|Enfants?)[:\s]*(\d+)/i);
+
+  let adults = 0;
+  let children = 0;
+
+  if (adultMatch) adults = parseInt(adultMatch[1] || adultMatch[2] || "0");
+  if (childMatch) children = parseInt(childMatch[1] || childMatch[2] || "0");
+
+  result.adults_count = adults;
+  result.children_count = children;
+  result.people_count = (adults + children) || 1;
 
   // 5. Extract Price
   // Matches: "1 200,00", "1200.00", "Price: 500"
@@ -149,6 +162,19 @@ const parseWithRegex = (text: string): ExtractionResult => {
     result.pickup_address = pickupMatch[1].trim();
     result.transport_included = true;
   }
+
+  // 7. Extract Menu Choice (Chems Ayour)
+  const menuMatch = text.match(/(?:Choix du menu|Menu)[:\s]*([^\n]+)/i);
+  if (menuMatch) {
+    result.menu_choice = menuMatch[1].trim();
+  }
+
+  // 8. Extract Phone & Email
+  const phoneMatch = text.match(/(?:Téléphone|Phone|Tel)[:\s]*([+\d\s]+)/i);
+  if (phoneMatch) result.phone = phoneMatch[1].trim();
+
+  const emailMatch = text.match(/(?:Email|E-mail)[:\s]*([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9._-]+)/i);
+  if (emailMatch) result.email = emailMatch[1].trim();
 
   return result;
 };

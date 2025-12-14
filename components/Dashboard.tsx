@@ -15,11 +15,11 @@ const Dashboard: React.FC<DashboardProps> = ({ reservations, onStatusChange }) =
 
   // Filter Logic
   const filteredReservations = reservations.filter((res) => {
-    const matchesSearch = 
+    const matchesSearch =
       res.customer_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       res.reservation_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
       res.platform.toLowerCase().includes(searchTerm.toLowerCase());
-    
+
     const matchesStatus = statusFilter === 'all' || res.status === statusFilter;
     const matchesPlatform = platformFilter === 'all' || res.platform === platformFilter;
 
@@ -30,7 +30,7 @@ const Dashboard: React.FC<DashboardProps> = ({ reservations, onStatusChange }) =
   const platforms = Array.from(new Set(reservations.map(r => r.platform)));
 
   const getStatusColor = (status: string) => {
-    switch(status) {
+    switch (status) {
       case 'Nouveau': return 'bg-blue-100 text-blue-800 border-blue-200';
       case 'Confirmé': return 'bg-green-100 text-green-800 border-green-200';
       case 'En cours': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
@@ -50,14 +50,14 @@ const Dashboard: React.FC<DashboardProps> = ({ reservations, onStatusChange }) =
       {/* Header Controls */}
       <div className="p-5 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <h3 className="text-lg font-semibold text-gray-800">Dernières Réservations</h3>
-        
+
         <div className="flex flex-col sm:flex-row gap-3">
           {/* Search */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <input 
-              type="text" 
-              placeholder="Rechercher..." 
+            <input
+              type="text"
+              placeholder="Rechercher..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-64"
@@ -66,7 +66,7 @@ const Dashboard: React.FC<DashboardProps> = ({ reservations, onStatusChange }) =
 
           {/* Filters */}
           <div className="flex gap-2">
-            <select 
+            <select
               value={platformFilter}
               onChange={(e) => setPlatformFilter(e.target.value)}
               className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
@@ -75,7 +75,7 @@ const Dashboard: React.FC<DashboardProps> = ({ reservations, onStatusChange }) =
               {platforms.map(p => <option key={p} value={p}>{p}</option>)}
             </select>
 
-            <select 
+            <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
               className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
@@ -98,6 +98,7 @@ const Dashboard: React.FC<DashboardProps> = ({ reservations, onStatusChange }) =
               <th className="px-6 py-3">Client / Ref</th>
               <th className="px-6 py-3">Plateforme</th>
               <th className="px-6 py-3">Activité</th>
+              <th className="px-6 py-3">Pax</th>
               <th className="px-6 py-3">Transport</th>
               <th className="px-6 py-3">Montant</th>
               <th className="px-6 py-3">Statut</th>
@@ -109,8 +110,16 @@ const Dashboard: React.FC<DashboardProps> = ({ reservations, onStatusChange }) =
               filteredReservations.map((res) => (
                 <tr key={res.id} className="hover:bg-gray-50 transition-colors group">
                   <td className="px-6 py-4">
-                    <div className="font-medium text-gray-900">{res.customer_name}</div>
+                    <div className="font-medium text-gray-900" title={res.email || res.phone || ''}>
+                      {res.customer_name}
+                    </div>
                     <div className="text-xs text-gray-400 font-mono mt-0.5">{res.reservation_id}</div>
+                    {(res.phone || res.email) && (
+                      <div className="hidden group-hover:block absolute bg-gray-800 text-white text-xs p-2 rounded shadow-lg z-10 mt-1">
+                        {res.phone && <div>📞 {res.phone}</div>}
+                        {res.email && <div>✉️ {res.email}</div>}
+                      </div>
+                    )}
                   </td>
                   <td className="px-6 py-4">
                     <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-700">
@@ -119,15 +128,28 @@ const Dashboard: React.FC<DashboardProps> = ({ reservations, onStatusChange }) =
                   </td>
                   <td className="px-6 py-4">
                     <div className="text-gray-900 max-w-[150px] truncate" title={res.activity_type}>{res.activity_type}</div>
+                    {res.menu_choice && (
+                      <div className="text-xs text-purple-600 font-medium mt-0.5">🍽️ {res.menu_choice}</div>
+                    )}
                     <div className="flex items-center text-xs text-gray-400 mt-0.5">
                       <Calendar className="w-3 h-3 mr-1" />
                       {res.activity_date}
                     </div>
                   </td>
                   <td className="px-6 py-4">
+                    <div className="text-sm text-gray-900 font-medium">{res.people_count} pers.</div>
+                    {(res.adults_count !== undefined || res.children_count !== undefined) && (
+                      <div className="text-xs text-gray-500">
+                        {res.adults_count ? `${res.adults_count} Ad` : ''}
+                        {res.adults_count && res.children_count ? ', ' : ''}
+                        {res.children_count ? `${res.children_count} Enf` : ''}
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-6 py-4">
                     <div className="flex items-center">
                       {res.transport_included ? (
-                        <div className="flex items-center text-green-600 text-xs bg-green-50 px-2 py-1 rounded-full">
+                        <div className="flex items-center text-green-600 text-xs bg-green-50 px-2 py-1 rounded-full cursor-help">
                           <Bus className="w-3 h-3 mr-1" />
                           <span>Oui</span>
                         </div>
@@ -136,7 +158,7 @@ const Dashboard: React.FC<DashboardProps> = ({ reservations, onStatusChange }) =
                       )}
                       {res.transport_included && res.pickup_address && (
                         <div className="hidden group-hover:block absolute bg-gray-800 text-white text-xs p-2 rounded shadow-lg z-10 -mt-8 ml-10 max-w-xs">
-                          {res.pickup_address}
+                          📍 {res.pickup_address}
                         </div>
                       )}
                     </div>
@@ -148,7 +170,7 @@ const Dashboard: React.FC<DashboardProps> = ({ reservations, onStatusChange }) =
                     </span>
                   </td>
                   <td className="px-6 py-4">
-                    <select 
+                    <select
                       value={res.status}
                       onChange={(e) => onStatusChange(res.id, e.target.value as any)}
                       className={`text-xs px-2 py-1 rounded-full border ${getStatusColor(res.status)} cursor-pointer focus:outline-none focus:ring-1 focus:ring-offset-1`}
