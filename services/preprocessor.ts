@@ -72,7 +72,7 @@ function detectLanguage(text: string): PreProcessorResult['languageHint'] {
 function detectCurrency(text: string): PreProcessorResult['currencyHint'] {
     // Check for currency symbols and codes
     if (text.includes('€') || /\bEUR\b/i.test(text)) return 'EUR';
-    if (text.includes('د.م.') || /\bMAD\b/i.test(text) || /\bDH\b/i.test(text)) return 'MAD';
+    if (text.includes('د.م') || text.includes('د.م.') || /\bMAD\b/i.test(text) || /\bDH\b/i.test(text)) return 'MAD';
     if (text.includes('$') || /\bUSD\b/i.test(text)) return 'USD';
 
     return 'unknown';

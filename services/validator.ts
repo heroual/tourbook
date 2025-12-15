@@ -21,7 +21,8 @@ export type ValidationFlag =
     | 'zero_pax'
     | 'payment_incoherence'
     | 'missing_platform'
-    | 'missing_reservation_id';
+    | 'missing_reservation_id'
+    | 'generic_activity';
 
 /**
  * Validate reservation data
@@ -69,13 +70,23 @@ export function validateReservation(reservation: Partial<Reservation>): Validati
         flags.push('payment_incoherence');
     }
 
+    // Check for generic activity names
+    const genericNames = ['activity', 'tour', 'excursion', 'booking', 'reservation'];
+    if (
+        reservation.activity_type &&
+        genericNames.includes(reservation.activity_type.toLowerCase().trim())
+    ) {
+        flags.push('generic_activity');
+    }
+
     // Determine if manual review is needed
     const criticalFlags: ValidationFlag[] = [
         'missing_name',
         'missing_date',
         'invalid_date',
         'payment_incoherence',
-        'missing_reservation_id'
+        'missing_reservation_id',
+        'generic_activity'
     ];
 
     const needsReview = flags.some(flag => criticalFlags.includes(flag));
@@ -99,7 +110,8 @@ export function getFlagDescription(flag: ValidationFlag, lang: 'fr' | 'en' = 'fr
         zero_pax: { fr: 'Nombre de personnes invalide', en: 'Invalid passenger count' },
         payment_incoherence: { fr: 'Incohérence paiement', en: 'Payment incoherence' },
         missing_platform: { fr: 'Plateforme non identifiée', en: 'Platform not identified' },
-        missing_reservation_id: { fr: 'Référence manquante', en: 'Reference missing' }
+        missing_reservation_id: { fr: 'Référence manquante', en: 'Reference missing' },
+        generic_activity: { fr: 'Nom activité générique', en: 'Generic activity name' }
     };
 
     return descriptions[flag][lang];

@@ -4,7 +4,7 @@
  */
 
 export function getGetYourGuidePrompt(language: string, currency: string): string {
-    return `You are an expert in extracting data from GetYourGuide reservation emails.
+  return `You are an expert in extracting data from GetYourGuide reservation emails.
 
 CRITICAL RULES:
 1. Extract ONLY factual values from the email
@@ -19,7 +19,8 @@ PLATFORM-SPECIFIC PATTERNS:
 - Email format: customer-xxx@reply.getyourguide.com
 - Date format: "Month DD, YYYY HH:MM AM/PM" or "DD/MM/YYYY"
 - Participant format: "X x Adults", "X x Children"
-- Activity includes option/variant (e.g., "Camel Ride - Sunset")
+- Activity includes option/variant (e.g., "Camel Ride - Sunset"). Do NOT include language options like "Arabe (Host or greeter)" or "English".
+- Currency: Look for "د.م" or "MAD" for Moroccan Dirham.
 
 LANGUAGE CONTEXT: ${language}
 CURRENCY CONTEXT: ${currency}

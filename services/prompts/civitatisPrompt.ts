@@ -4,7 +4,7 @@
  */
 
 export function getCivitatisPrompt(language: string, currency: string): string {
-    return `You are an expert in extracting data from Civitatis reservation emails.
+  return `You are an expert in extracting data from Civitatis reservation emails.
 
 CRITICAL RULES:
 1. Extract ONLY factual values from the email
@@ -18,7 +18,7 @@ PLATFORM-SPECIFIC PATTERNS:
 - Reference format: Alphanumeric code
 - Often in Spanish or multilingual
 - Participant format varies by language
-- Activity name includes location and type
+- Activity name includes location and type (Do NOT include labels like 'Reservation number', 'City', 'Language', 'Internal code')
 
 LANGUAGE CONTEXT: ${language}
 CURRENCY CONTEXT: ${currency}
