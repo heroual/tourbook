@@ -52,64 +52,87 @@ function getPlatformPrompt(
 }
 
 /**
+ * Utility to pause execution
+ */
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+/**
  * Extract data using AI with platform-specific prompt
+ * Includes Retry Logic for 429 Errors
  */
 async function extractWithAI(
   cleanText: string,
   platform: Platform,
   preprocessResult: PreProcessorResult
 ): Promise<ExtractionResult | null> {
-  try {
-    const prompt = getPlatformPrompt(
-      platform,
-      preprocessResult.languageHint,
-      preprocessResult.currencyHint
-    );
+  const prompt = getPlatformPrompt(
+    platform,
+    preprocessResult.languageHint,
+    preprocessResult.currencyHint
+  );
 
-    const response = await fetch(`${API_ENDPOINT}?key=${API_KEY}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{
-            text: `${prompt}\n\nEmail Content:\n${cleanText}`
-          }]
-        }],
-        generationConfig: {
-          temperature: 0.1,
-          responseMimeType: "application/json"
-        },
-        safetySettings: [
-          { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
-          { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
-          { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
-          { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
-        ]
-      })
-    });
+  let retries = 0;
+  const maxRetries = 3;
 
-    if (!response.ok) {
-      throw new Error(`API Error: ${response.status} ${response.statusText}`);
+  while (retries < maxRetries) {
+    try {
+      // Add a small delay before each request to respect rate limits
+      if (retries > 0) await delay(2000 * retries); // Exponential backoff: 2s, 4s, 6s
+
+      const response = await fetch(`${API_ENDPOINT}?key=${API_KEY}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{
+            parts: [{
+              text: `${prompt}\n\nEmail Content:\n${cleanText}`
+            }]
+          }],
+          generationConfig: {
+            temperature: 0.1,
+            responseMimeType: "application/json"
+          },
+          safetySettings: [
+            { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
+          ]
+        })
+      });
+
+      if (response.status === 429 || response.status === 503) {
+        console.warn(`[GeminiService] Rate limit hit (429). Retrying... (${retries + 1}/${maxRetries})`);
+        retries++;
+        continue;
+      }
+
+      if (!response.ok) {
+        throw new Error(`API Error: ${response.status} ${response.statusText}`);
+      }
+
+      const json = await response.json();
+      const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
+
+      if (!text) {
+        console.warn('[GeminiService] Empty AI response');
+        return null;
+      }
+
+      // Clean up markdown code blocks if present
+      const cleanJson = text.replace(/```json/g, '').replace(/```/g, '').trim();
+      const data = JSON.parse(cleanJson) as ExtractionResult;
+
+      console.log('[GeminiService] AI extraction successful for platform:', platform);
+      return data;
+
+    } catch (error) {
+      console.error(`[GeminiService] AI extraction attempt ${retries + 1} failed:`, error);
+      retries++;
+      if (retries >= maxRetries) return null;
     }
-
-    const json = await response.json();
-    const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
-
-    if (!text) {
-      console.warn('[GeminiService] Empty AI response');
-      return null;
-    }
-
-    // Clean up markdown code blocks if present
-    const cleanJson = text.replace(/```json/g, '').replace(/```/g, '').trim();
-    const data = JSON.parse(cleanJson) as ExtractionResult;
-
-    console.log('[GeminiService] AI extraction successful for platform:', platform);
-    return data;
-  } catch (error) {
-    console.error('[GeminiService] AI extraction failed:', error);
-    return null;
   }
+  return null;
 }
 
 /**
