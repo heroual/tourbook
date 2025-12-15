@@ -130,10 +130,18 @@ const EmailIngester: React.FC<EmailIngesterProps> = ({ onReservationAdded }) => 
 
         const validation = await validateReservation(newReservation);
 
+
+        // Store validation results
+        newReservation.validation_flags = validation.flags;
+        newReservation.needs_review = validation.needsReview;
+
         if (!validation.isValid) {
-          setError(`Validation échouée: ${validation.errors.join(", ")}`);
-          newReservation.status = 'En cours'; // Mark as needing attention
-          newReservation.notes += ` [Validation Errors: ${validation.errors.join(", ")}]`;
+          setError(`Validation: ${validation.flags.length} problème(s) détecté(s)`);
+          newReservation.status = 'En cours';
+
+          const { getFlagDescription } = await import('../services/validator');
+          const flagDescriptions = validation.flags.map(f => getFlagDescription(f as any, 'fr')).join(', ');
+          newReservation.notes = (newReservation.notes || '') + ` [Validation: ${flagDescriptions}]`;
         }
 
         onReservationAdded(newReservation);
@@ -182,8 +190,10 @@ const EmailIngester: React.FC<EmailIngesterProps> = ({ onReservationAdded }) => 
     const addLog = (msg: string) => setScanLog(prev => [...prev, msg]);
 
     try {
-      addLog("Recherche d'emails (GetYourGuide, Civitatis, Chems Ayour, Reservation)...");
-      const messages = await searchEmails(accessToken, '(subject:(reservation OR booking OR confirmation OR order) OR "GetYourGuide" OR "Civitatis" OR "Chems Ayour") newer_than:7d');
+      addLog("Recherche d'emails (GetYourGuide, Civitatis, Viator, Airbnb, etc...)...");
+      // Expanded query to catch more reservation types
+      const query = '(subject:(reservation OR booking OR confirmation OR order OR voucher OR ticket OR billet OR recu OR receipt OR excursion OR tour OR activity OR voyage OR soiree OR soirée OR résérvation) OR "GetYourGuide" OR "Civitatis" OR "Chems Ayour" OR "Viator" OR "Airbnb" OR "TripAdvisor") newer_than:7d';
+      const messages = await searchEmails(accessToken, query);
 
       if (messages.length === 0) {
         addLog("Aucun email récent trouvé correspondant aux critères.");
