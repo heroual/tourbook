@@ -478,7 +478,16 @@ const Dashboard: React.FC<DashboardProps> = ({ reservations, onStatusChange }) =
               <div className="col-span-1 md:col-span-2 border-t border-gray-100 pt-4 mt-2 flex justify-between items-center bg-gray-50 p-4 rounded-xl">
                 <div>
                   <p className="text-xs text-gray-500 mb-1">Montant Total</p>
-                  <p className="text-2xl font-bold text-gray-900">{selectedRes.total_amount} €</p>
+                  <div className="flex items-baseline gap-2">
+                    <p className="text-2xl font-bold text-gray-900">
+                      {selectedRes.amount_eur ? selectedRes.amount_eur : selectedRes.total_amount} €
+                    </p>
+                    {selectedRes.original_currency && selectedRes.original_currency !== 'EUR' && (
+                      <p className="text-sm text-gray-500">
+                        ({selectedRes.original_amount} {selectedRes.original_currency})
+                      </p>
+                    )}
+                  </div>
                   <p className={`text-xs font-bold uppercase ${getPaymentStatusColor(selectedRes.payment_status)}`}>
                     {selectedRes.payment_status}
                   </p>
