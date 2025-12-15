@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Reservation } from '../types';
-import { Search, Filter, MoreHorizontal, Bus, Calendar, DollarSign, ExternalLink, X, User, Mail, Phone, MapPin, Utensils, CreditCard, Clock } from 'lucide-react';
+import { Search, Filter, MoreHorizontal, Bus, Calendar, DollarSign, ExternalLink, X, User, Mail, Phone, MapPin, Utensils, CreditCard, Clock, AlertTriangle, Info, Bot, FileText } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface DashboardProps {
@@ -169,10 +169,27 @@ const Dashboard: React.FC<DashboardProps> = ({ reservations, onStatusChange }) =
                     </div>
                   </td>
                   <td className="px-6 py-4">
-                    <div className="font-medium text-gray-900">{res.total_amount} €</div>
+                    <div className="font-medium text-gray-900">
+                      {res.amount_eur ? res.amount_eur : res.total_amount} €
+                      {res.original_currency && res.original_currency !== 'EUR' && (
+                        <span className="ml-1 text-xs text-gray-400" title={`Montant original: ${res.original_amount} ${res.original_currency}`}>
+                          (conv.)
+                        </span>
+                      )}
+                    </div>
                     <span className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded ${getPaymentStatusColor(res.payment_status)}`}>
                       {res.payment_status}
                     </span>
+                    {res.validation_flags && res.validation_flags.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {res.validation_flags.map((flag, idx) => (
+                          <span key={idx} className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-100 text-red-800" title={flag}>
+                            <AlertTriangle className="w-3 h-3 mr-1" />
+                            Attention
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </td>
                   <td className="px-6 py-4">
                     <select
@@ -355,6 +372,15 @@ const Dashboard: React.FC<DashboardProps> = ({ reservations, onStatusChange }) =
                 <p className="text-indigo-100 text-sm mt-1 flex items-center gap-2">
                   <span className="bg-white/20 px-2 py-0.5 rounded text-xs font-mono">{selectedRes.reservation_id}</span>
                   <span>via {selectedRes.platform}</span>
+                  {selectedRes.extraction_source === 'ai' ? (
+                    <span className="flex items-center gap-1 bg-green-400/20 px-2 py-0.5 rounded text-xs" title="Extrait par IA">
+                      <Bot className="w-3 h-3" /> IA
+                    </span>
+                  ) : selectedRes.extraction_source === 'regex' ? (
+                    <span className="flex items-center gap-1 bg-yellow-400/20 px-2 py-0.5 rounded text-xs" title="Extrait par Regex (Secours)">
+                      <FileText className="w-3 h-3" /> Regex
+                    </span>
+                  ) : null}
                 </p>
               </div>
               <button
