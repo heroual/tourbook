@@ -100,19 +100,10 @@ const EmailIngester: React.FC<EmailIngesterProps> = ({ onReservationAdded }) => 
     };
   }, [autoScanEnabled, accessToken]);
 
-  // Validation Helper
-  const validateReservation = (res: Reservation): { isValid: boolean; errors: string[] } => {
-    const errors: string[] = [];
-
-    if (!res.customer_name || res.customer_name.trim() === "") errors.push("Nom du client manquant");
-    if (!res.activity_date) errors.push("Date de l'activité manquante");
-    if (res.total_amount <= 0) errors.push("Montant total invalide");
-
-    // Date validation (simple check)
-    const date = new Date(res.activity_date);
-    if (isNaN(date.getTime())) errors.push("Format de date invalide");
-
-    return { isValid: errors.length === 0, errors };
+  // Validation Helper - Now using new validation engine
+  const validateReservation = async (res: Reservation): Promise<{ isValid: boolean; flags: string[]; needsReview: boolean }> => {
+    const { validateReservation: validate } = await import('../services/validator');
+    return validate(res);
   };
 
   // Helper to process text (used by both modes)
@@ -131,10 +122,13 @@ const EmailIngester: React.FC<EmailIngesterProps> = ({ onReservationAdded }) => 
           created_at: new Date().toISOString(),
           adults_count: extractedData.adults_count,
           children_count: extractedData.children_count,
-          menu_choice: extractedData.menu_choice
+          menu_choice: extractedData.menu_choice,
+          amount_eur: extractedData.amount_eur,
+          original_amount: extractedData.original_amount,
+          original_currency: extractedData.original_currency
         };
 
-        const validation = validateReservation(newReservation);
+        const validation = await validateReservation(newReservation);
 
         if (!validation.isValid) {
           setError(`Validation échouée: ${validation.errors.join(", ")}`);

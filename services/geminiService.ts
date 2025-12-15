@@ -1,137 +1,78 @@
+/**
+ * Gemini AI Service - Multi-Step Extraction Pipeline
+ * 
+ * Architecture:
+ * Step 0: Pre-Processing (HTML cleaning, language/currency detection)
+ * Step 1: Platform Routing (identify reservation platform)
+ * Step 2: Platform-Specific AI Extraction
+ * Step 3: Validation & Normalization
+ * Step 4: Regex Fallback (if AI fails)
+ */
+
 import { ExtractionResult } from '../types';
+import { preProcess, PreProcessorResult } from './preprocessor';
+import { identifyPlatform, Platform } from './platformRouter';
+import { normalizeCurrency } from './currencyNormalizer';
+import { validateReservation, ValidationFlag } from './validator';
+import { getGetYourGuidePrompt } from './prompts/getYourGuidePrompt';
+import { getViatorPrompt } from './prompts/viatorPrompt';
+import { getCivitatisPrompt } from './prompts/civitatisPrompt';
+import { getChemsAyourPrompt } from './prompts/chemsAyourPrompt';
+import { getAirbnbPrompt } from './prompts/airbnbPrompt';
+import { getGenericPrompt } from './prompts/genericPrompt';
 
-const apiKey = process.env.API_KEY || '';
+const API_KEY = (import.meta as any).env?.VITE_GEMINI_API_KEY || '';
+const GEMINI_MODEL = 'gemini-2.0-flash';
+const API_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
+console.log('[GeminiService] Multi-Step Pipeline v3.0 initialized');
 
-
-export const parseReservationEmailRest = async (emailContent: string): Promise<ExtractionResult | null> => {
-  if (!apiKey) {
-    console.error("API Key is missing");
-    throw new Error("API Key is missing. Please check your environment configuration.");
+/**
+ * Get platform-specific prompt
+ */
+function getPlatformPrompt(
+  platform: Platform,
+  language: string,
+  currency: string
+): string {
+  switch (platform) {
+    case 'GetYourGuide':
+      return getGetYourGuidePrompt(language, currency);
+    case 'Viator':
+      return getViatorPrompt(language, currency);
+    case 'Civitatis':
+      return getCivitatisPrompt(language, currency);
+    case 'Chems Ayour':
+      return getChemsAyourPrompt(language, currency);
+    case 'Airbnb':
+      return getAirbnbPrompt(language, currency);
+    default:
+      return getGenericPrompt(language, currency);
   }
+}
 
+/**
+ * Extract data using AI with platform-specific prompt
+ */
+async function extractWithAI(
+  cleanText: string,
+  platform: Platform,
+  preprocessResult: PreProcessorResult
+): Promise<ExtractionResult | null> {
   try {
-    if (!emailContent || emailContent.trim() === "") {
-      console.warn("Email content is empty, skipping Gemini call.");
-      return null;
-    }
+    const prompt = getPlatformPrompt(
+      platform,
+      preprocessResult.languageHint,
+      preprocessResult.currencyHint
+    );
 
-    // Direct REST API call to bypass SDK issues
-    console.log("🚀 USING REST API VERSION - SDK REMOVED");
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-
-    const response = await fetch(url, {
+    const response = await fetch(`${API_ENDPOINT}?key=${API_KEY}`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{
           parts: [{
-            text: `You are an AI assistant for a travel agency. Extract reservation details from the following email text.
-      
-      Supported Platforms & Specific Instructions:
-      1. **GetYourGuide**: 
-         - Extract the "Reference Number" (e.g., GYG...) as 'reservation_id'.
-         - Extract the "Client" name.
-         - Extract the "Pickup" location if mentioned.
-         - Extract "Adults" and "Children" counts separately.
-      2. **Chems Ayour**:
-         - Extract "Réservation N°" as 'reservation_id'.
-         - Extract "Lieu de Pick-up" or "Pick-up" as 'pickup_address'.
-         - Extract "Total" as 'total_amount'.
-         - Extract "Choix du menu" as 'menu_choice'.
-         - Extract "Adultes" and "Enfants" counts separately.
-      3. **Civitatis**:
-         - Extract the Civitatis booking reference.
-      
-      General Rules:
-      - If a field is missing, return null or an empty string/0 as appropriate.
-      - Ensure dates are strictly YYYY-MM-DD.
-      - For 'people_count', sum up adults and children.
-      - For 'transport_included', return true if "Pick-up" or "Transfert" is mentioned/included.
-      - **activity_type**: Extract the FULL name of the activity/tour. IMPORTANT: Include any selected OPTIONS, VARIANTS, or TIME SLOTS (e.g., "Camel Ride - Sunset", "City Tour - Private", "Quad - Morning").
-      - Clean up price strings (remove currency symbols like "DH", "د.م.", "€").
-      - Extract 'email' and 'phone' if present.
-      - **CRITICAL**: Do NOT extract labels as values. For example, if text says "Name: John", extract "John", NOT "Name". If text says "Client details", do NOT extract "details".
-
-      EXAMPLES:
-
-      Input:
-      "Chems Ayour - Reservation Confirmed
-      Reference: CA-12345
-      Client: John Doe
-      Date: 2025-12-25
-      Pax: 2 Adults, 1 Child
-      Menu: Tradition
-      Total: 150€
-      Phone: +33612345678"
-
-      Output:
-      {
-        "platform": "Chems Ayour",
-        "reservation_id": "CA-12345",
-        "customer_name": "John Doe",
-        "activity_date": "2025-12-25",
-        "people_count": 3,
-        "adults_count": 2,
-        "children_count": 1,
-        "menu_choice": "Tradition",
-        "total_amount": 150,
-        "phone": "+33612345678",
-        "email": null,
-        "transport_included": false
-      }
-
-      Input:
-      "GetYourGuide Booking GYG889900
-      Activity: Camel Ride
-      Option: Sunset
-      Traveler: Sarah Connor
-      Participants: 2
-      Price: 50.00 EUR"
-
-      Output:
-      {
-        "platform": "GetYourGuide",
-        "reservation_id": "GYG889900",
-        "customer_name": "Sarah Connor",
-        "activity_type": "Camel Ride - Sunset",
-        "people_count": 2,
-        "total_amount": 50,
-        "payment_status": "Payé"
-      }
-
-      Input:
-      "Agadir / Taghazout : Chems Ayour Fantasia Show & Dinner
-      Numéro de référence: GYG6H8L4LKA5
-      Date: February 4, 2026 8:00 PM
-      Nombre de participant·es: 2 x Adults
-      Client·e principal·e: Kira Jeger
-      customer-lduj6qjwj3tdgl47@reply.getyourguide.com
-      N° de téléphone: +41791727477
-      Prix: 1 200,00 د.م."
-
-      Output:
-      {
-        "platform": "GetYourGuide",
-        "reservation_id": "GYG6H8L4LKA5",
-        "customer_name": "Kira Jeger",
-        "activity_type": "Chems Ayour Fantasia Show & Dinner",
-        "activity_date": "2026-02-04",
-        "people_count": 2,
-        "adults_count": 2,
-        "children_count": 0,
-        "email": "customer-lduj6qjwj3tdgl47@reply.getyourguide.com",
-        "phone": "+41791727477",
-        "total_amount": 1200,
-        "payment_status": "Payé"
-      }
-      
-      Email Content:
-      ${emailContent}
-      
-      Output strictly valid JSON only.`
+            text: `${prompt}\n\nEmail Content:\n${cleanText}`
           }]
         }],
         generationConfig: {
@@ -152,30 +93,37 @@ export const parseReservationEmailRest = async (emailContent: string): Promise<E
     }
 
     const json = await response.json();
-    console.log("Gemini REST Response:", json);
-
     const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
 
     if (!text) {
-      console.warn("Gemini returned empty text.");
-      throw new Error("Empty response from AI");
+      console.warn('[GeminiService] Empty AI response');
+      return null;
     }
 
     // Clean up markdown code blocks if present
-    const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
-    const data = JSON.parse(cleanText) as ExtractionResult;
+    const cleanJson = text.replace(/```json/g, '').replace(/```/g, '').trim();
+    const data = JSON.parse(cleanJson) as ExtractionResult;
+
+    console.log('[GeminiService] AI extraction successful for platform:', platform);
     return data;
   } catch (error) {
-    console.error("Error parsing email with Gemini:", error);
-    console.log("Falling back to Regex extraction...");
-    return parseWithRegex(emailContent);
+    console.error('[GeminiService] AI extraction failed:', error);
+    return null;
   }
-};
+}
 
-// Fallback Regex Parser
-const parseWithRegex = (text: string): ExtractionResult => {
+/**
+ * Enhanced Regex Fallback with platform-specific patterns
+ */
+function extractWithRegex(
+  text: string,
+  platform: Platform,
+  preprocessResult: PreProcessorResult
+): ExtractionResult {
+  console.log('[GeminiService] Using regex fallback for platform:', platform);
+
   const result: ExtractionResult = {
-    platform: "Unknown",
+    platform: platform,
     reservation_id: "",
     customer_name: "",
     email: "",
@@ -187,83 +135,143 @@ const parseWithRegex = (text: string): ExtractionResult => {
     pickup_address: "",
     total_amount: 0,
     payment_status: "Non payé",
-    notes: "Extracted via Regex Fallback",
-    adults_count: 0,
-    children_count: 0,
-    menu_choice: ""
+    notes: "Extracted via Regex Fallback"
   };
 
-  // 1. Detect Platform
-  if (text.includes("GetYourGuide") || text.includes("GYG")) result.platform = "GetYourGuide";
-  else if (text.includes("Chems Ayour")) result.platform = "Chems Ayour";
-  else if (text.includes("Civitatis")) result.platform = "Civitatis";
-  else if (text.includes("Viator")) result.platform = "Viator";
+  // Platform-specific reservation ID patterns
+  const refPatterns: Record<Platform, RegExp> = {
+    'GetYourGuide': /GYG[A-Z0-9]{8,}/i,
+    'Viator': /(?:Booking|Reference)[:\s#]*(\d{8,})/i,
+    'Civitatis': /(?:Reference|Código)[:\s#]*([A-Z0-9]{6,})/i,
+    'Chems Ayour': /CA-\d+/i,
+    'Airbnb': /(?:Confirmation|Code)[:\s#]*([A-Z0-9]{8,})/i,
+    'Unknown': /(?:Reference Number|Réservation N°|Booking Reference|Order ID|Numéro de référence)[:\s#]*([A-Z0-9]+)/i
+  };
 
-  // 2. Extract Reservation ID
-  const refMatch = text.match(/(?:Reference Number|Réservation N°|Booking Reference|Order ID|Numéro de référence)[:\s#]*([A-Z0-9]+)/i);
-  if (refMatch) result.reservation_id = refMatch[1];
+  const refMatch = text.match(refPatterns[platform] || refPatterns['Unknown']);
+  if (refMatch) result.reservation_id = refMatch[1] || refMatch[0];
 
-  // 3. Extract Name (Improved)
-  // Look for "Name:" or "Client:" followed by text that is NOT a common label
+  // Extract Name
   const nameMatch = text.match(/(?:Client|Customer|Nom|Name|Traveler|Client·e principal·e)[:\s]*([A-Za-z\s]+)(?:\n|$)/i);
   if (nameMatch) {
     const rawName = nameMatch[1].trim();
-    // Filter out common false positives (labels captured as values)
-    const invalidNames = ["details", "email", "phone", "telephone", "adults", "participants", "total", "price", "date", "bre de participant"];
+    const invalidNames = ["details", "email", "phone", "telephone", "adults", "participants", "total", "price", "date"];
     if (!invalidNames.includes(rawName.toLowerCase()) && rawName.length > 2) {
       result.customer_name = rawName;
     }
   }
 
-  // 4. Extract People Count & Breakdown
-  // Matches: "2 x Adults", "2 Adults", "Adultes: 2"
-  const adultMatch = text.match(/(\d+)\s*x?\s*(?:Adults?|Adultes?)|(?:Adults?|Adultes?)[:\s]*(\d+)/i);
-  const childMatch = text.match(/(\d+)\s*x?\s*(?:Children?|Enfants?)|(?:Children?|Enfants?)[:\s]*(\d+)/i);
+  // Extract People Count & Breakdown
+  const adultsMatch = text.match(/(\d+)\s*(?:x\s*)?(?:Adults?|Adultes?)/i);
+  const childrenMatch = text.match(/(\d+)\s*(?:x\s*)?(?:Children?|Enfants?)/i);
 
-  let adults = 0;
-  let children = 0;
+  if (adultsMatch) result.adults_count = parseInt(adultsMatch[1]);
+  if (childrenMatch) result.children_count = parseInt(childrenMatch[1]);
 
-  if (adultMatch) adults = parseInt(adultMatch[1] || adultMatch[2] || "0");
-  if (childMatch) children = parseInt(childMatch[1] || childMatch[2] || "0");
+  result.people_count = (result.adults_count || 0) + (result.children_count || 0) || 1;
 
-  result.adults_count = adults;
-  result.children_count = children;
-  result.people_count = (adults + children) || 1;
-
-  // 5. Extract Price
-  // Matches: "1 200,00", "1200.00", "Price: 500"
-  const priceMatch = text.match(/(?:Price|Prix|Total|Montant)[:\s]*([\d\s,.]+)/i);
-  if (priceMatch) {
-    // Clean string: remove spaces, replace comma with dot
-    const cleanPrice = priceMatch[1].replace(/\s/g, '').replace(',', '.');
-    result.total_amount = parseFloat(cleanPrice) || 0;
-  }
-
-  // 5. Extract Activity Name
+  // Extract Activity Name
   const activityMatch = text.match(/(?:Activity|Tour|Item|Option|Activité|Détails activité)[:\s]*([^\n]+)/i);
   if (activityMatch && activityMatch[1].trim().length > 3) {
     result.activity_type = activityMatch[1].trim();
   }
 
-  // 6. Extract Transport / Pickup
-  const pickupMatch = text.match(/(?:Pick-up|Lieu de départ|Meeting point)[:\s]*([^\n]+)/i);
-  if (pickupMatch) {
-    result.pickup_address = pickupMatch[1].trim();
-    result.transport_included = true;
+  // Extract Date
+  const dateMatch = text.match(/(?:Date|Activity Date)[:\s]*(\d{1,2}[-/]\d{1,2}[-/]\d{2,4})/i);
+  if (dateMatch) {
+    try {
+      const date = new Date(dateMatch[1]);
+      if (!isNaN(date.getTime())) {
+        result.activity_date = date.toISOString().split('T')[0];
+      }
+    } catch (e) {
+      // Keep default date
+    }
   }
 
-  // 7. Extract Menu Choice (Chems Ayour)
-  const menuMatch = text.match(/(?:Choix du menu|Menu)[:\s]*([^\n]+)/i);
-  if (menuMatch) {
-    result.menu_choice = menuMatch[1].trim();
+  // Extract Amount
+  const amountMatch = text.match(/(?:Total|Prix|Price|Amount)[:\s]*(?:€|EUR|MAD|USD|\$|د\.م\.)?\s*([\d.,\s]+)/i);
+  if (amountMatch) {
+    const cleanPrice = amountMatch[1].replace(/[^\d.,]/g, '').replace(',', '.');
+    result.total_amount = parseFloat(cleanPrice) || 0;
   }
 
-  // 8. Extract Phone & Email
-  const phoneMatch = text.match(/(?:Téléphone|Phone|Tel)[:\s]*([+\d\s]+)/i);
+  // Extract Email
+  const emailMatch = text.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+  if (emailMatch) result.email = emailMatch[1];
+
+  // Extract Phone
+  const phoneMatch = text.match(/(?:Phone|Téléphone|N°\s*de\s*téléphone)[:\s]*([\+\d\s\-()]+)/i);
   if (phoneMatch) result.phone = phoneMatch[1].trim();
 
-  const emailMatch = text.match(/(?:Email|E-mail)[:\s]*([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9._-]+)/i);
-  if (emailMatch) result.email = emailMatch[1].trim();
+  // Extract Menu Choice (for Chems Ayour)
+  if (platform === 'Chems Ayour') {
+    const menuMatch = text.match(/Menu[:\s]*(Tradition|Royal|Premium)/i);
+    if (menuMatch) result.menu_choice = menuMatch[1];
+  }
+
+  // Extract Transport
+  result.transport_included = /(?:Pick-up|Transfert|Transport)[:\s]*(?:Oui|Yes|Included)/i.test(text);
+
+  const pickupMatch = text.match(/(?:Pick-up|Lieu de départ|Meeting point)[:\s]*([^\n]+)/i);
+  if (pickupMatch) result.pickup_address = pickupMatch[1].trim();
 
   return result;
-};
+}
+
+/**
+ * Main extraction function - 4-Step Pipeline
+ */
+export async function parseReservationEmailRest(emailContent: string): Promise<ExtractionResult> {
+  console.log('[GeminiService] Starting 4-step extraction pipeline');
+
+  // STEP 0: Pre-Processing
+  console.log('[GeminiService] Step 0: Pre-processing');
+  const preprocessResult = preProcess(emailContent);
+  console.log('[GeminiService] Detected:', {
+    language: preprocessResult.languageHint,
+    currency: preprocessResult.currencyHint,
+    numbers: preprocessResult.detectedNumbers.length
+  });
+
+  // STEP 1: Platform Routing
+  console.log('[GeminiService] Step 1: Platform routing');
+  const platform = await identifyPlatform(preprocessResult.cleanText, API_KEY);
+  console.log('[GeminiService] Identified platform:', platform);
+
+  // STEP 2: Platform-Specific AI Extraction
+  console.log('[GeminiService] Step 2: AI extraction');
+  let extractedData = await extractWithAI(
+    preprocessResult.cleanText,
+    platform,
+    preprocessResult
+  );
+
+  let extractionSource: 'ai' | 'regex' = 'ai';
+
+  // STEP 4: Regex Fallback (if AI failed)
+  if (!extractedData) {
+    console.log('[GeminiService] Step 4: Regex fallback');
+    extractedData = extractWithRegex(
+      preprocessResult.cleanText,
+      platform,
+      preprocessResult
+    );
+    extractionSource = 'regex';
+  }
+
+  // STEP 3: Currency Normalization
+  console.log('[GeminiService] Step 3: Currency normalization');
+  const currencyConversion = normalizeCurrency(
+    extractedData.total_amount,
+    preprocessResult.currencyHint
+  );
+
+  extractedData.amount_eur = currencyConversion.amount_eur;
+  extractedData.original_amount = currencyConversion.original_amount;
+  extractedData.original_currency = currencyConversion.original_currency;
+
+  console.log('[GeminiService] Pipeline complete. Extraction source:', extractionSource);
+
+  return extractedData;
+}

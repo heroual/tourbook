@@ -18,6 +18,14 @@ export interface Reservation {
   adults_count?: number;
   children_count?: number;
   menu_choice?: string;
+  // Currency normalization
+  amount_eur?: number;
+  original_amount?: number;
+  original_currency?: 'EUR' | 'MAD' | 'USD' | 'unknown';
+  // Extraction metadata
+  extraction_source?: 'ai' | 'regex';
+  validation_flags?: string[];
+  needs_review?: boolean;
 }
 
 export type ReservationStatus = Reservation['status'];
@@ -39,4 +47,8 @@ export interface ExtractionResult {
   adults_count?: number;
   children_count?: number;
   menu_choice?: string;
+  // Currency normalization
+  amount_eur?: number;
+  original_amount?: number;
+  original_currency?: 'EUR' | 'MAD' | 'USD' | 'unknown';
 }
