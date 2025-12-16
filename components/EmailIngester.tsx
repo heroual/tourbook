@@ -17,6 +17,7 @@ interface EmailIngesterProps {
 }
 
 type IngestionMode = 'gmail' | 'manual';
+type AuthMode = 'oauth' | 'manual';
 
 const EmailIngester: React.FC<EmailIngesterProps> = ({ onReservationAdded }) => {
   const [mode, setMode] = useState<IngestionMode>('gmail');
@@ -26,6 +27,9 @@ const EmailIngester: React.FC<EmailIngesterProps> = ({ onReservationAdded }) => 
   const [googleClientId, setGoogleClientId] = useState('1088380297058-bcviork8fk99bksa328h3btcfc5fltht.apps.googleusercontent.com');
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [tokenClient, setTokenClient] = useState<any>(null);
+  const [authMode, setAuthMode] = useState<AuthMode>('oauth');
+  const [manualToken, setManualToken] = useState('');
+
 
   const [isScanning, setIsScanning] = useState(false);
   const [scanLog, setScanLog] = useState<string[]>([]);
@@ -55,7 +59,7 @@ const EmailIngester: React.FC<EmailIngesterProps> = ({ onReservationAdded }) => 
 
   // Initialize Google Identity Services
   useEffect(() => {
-    if (window.google && googleClientId) {
+    if (window.google && googleClientId && authMode === 'oauth') {
       try {
         const client = window.google.accounts.oauth2.initTokenClient({
           client_id: googleClientId,
@@ -78,7 +82,7 @@ const EmailIngester: React.FC<EmailIngesterProps> = ({ onReservationAdded }) => 
         setError("Erreur d'initialisation du client Google. Vérifiez l'ID.");
       }
     }
-  }, [googleClientId]);
+  }, [googleClientId, authMode]);
 
   // Auto-Scan Effect
   useEffect(() => {
@@ -169,6 +173,18 @@ const EmailIngester: React.FC<EmailIngesterProps> = ({ onReservationAdded }) => 
   };
 
   const handleAuthClick = () => {
+    if (authMode === 'manual') {
+        if (manualToken.trim()) {
+            setAccessToken(manualToken.trim());
+            localStorage.setItem('google_access_token', manualToken.trim());
+            setScanLog(prev => [...prev, "Token manuel défini."]);
+            setError(null);
+        } else {
+            setError("Veuillez coller un token d'accès valide.");
+        }
+        return;
+    }
+
     if (!googleClientId) {
       setError("Veuillez entrer un Client ID Google valide.");
       return;
@@ -325,103 +341,139 @@ const EmailIngester: React.FC<EmailIngesterProps> = ({ onReservationAdded }) => 
           <div className="flex flex-col text-left">
             {!accessToken ? (
               <div className="py-2">
-
-                {/* ID INPUT */}
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">ID Client Google</label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <Lock className="h-4 w-4 text-gray-400" />
-                    </div>
-                    <input
-                      type="text"
-                      value={googleClientId}
-                      onChange={(e) => setGoogleClientId(e.target.value)}
-                      placeholder="Collez l'ID ici..."
-                      className="pl-10 block w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-3 border font-mono text-gray-700"
-                    />
-                  </div>
+                {/* Auth Mode Tabs */}
+                <div className="flex justify-center border-b border-gray-200 mb-4">
+                    <button onClick={() => setAuthMode('oauth')} className={`px-4 py-2 text-sm font-medium ${authMode === 'oauth' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-500'}`}>
+                        OAuth Flow
+                    </button>
+                    <button onClick={() => setAuthMode('manual')} className={`px-4 py-2 text-sm font-medium ${authMode === 'manual' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-500'}`}>
+                        Manual Token
+                    </button>
                 </div>
 
-                {/* LOGIN BUTTON */}
-                <button
-                  onClick={handleAuthClick}
-                  disabled={!googleClientId}
-                  className={`w-full text-white font-bold py-3 px-4 rounded-xl shadow-md flex items-center justify-center gap-3 transition-all mb-4 ${!googleClientId
-                    ? 'bg-gray-300 cursor-not-allowed'
-                    : 'bg-indigo-600 hover:bg-indigo-700 hover:shadow-lg'
-                    }`}
-                >
-                  <LogIn className="w-5 h-5" />
-                  Autoriser l'accès Gmail
-                </button>
+                {authMode === 'oauth' && (
+                    <>
+                        {/* ID INPUT */}
+                        <div className="mb-4">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">ID Client Google</label>
+                            <div className="relative">
+                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <Lock className="h-4 w-4 text-gray-400" />
+                                </div>
+                                <input
+                                    type="text"
+                                    value={googleClientId}
+                                    onChange={(e) => setGoogleClientId(e.target.value)}
+                                    placeholder="Collez l'ID ici..."
+                                    className="pl-10 block w-full border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-3 border font-mono text-gray-700"
+                                />
+                            </div>
+                        </div>
+
+                        {/* LOGIN BUTTON */}
+                        <button
+                            onClick={handleAuthClick}
+                            disabled={!googleClientId}
+                            className={`w-full text-white font-bold py-3 px-4 rounded-xl shadow-md flex items-center justify-center gap-3 transition-all mb-4 ${!googleClientId
+                                ? 'bg-gray-300 cursor-not-allowed'
+                                : 'bg-indigo-600 hover:bg-indigo-700 hover:shadow-lg'
+                                }`}
+                        >
+                            <LogIn className="w-5 h-5" />
+                            Autoriser l'accès Gmail
+                        </button>
+                    </>
+                )}
+
+                {authMode === 'manual' && (
+                    <>
+                        <div className="mb-4">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Gmail Access Token</label>
+                            <textarea
+                                value={manualToken}
+                                onChange={(e) => setManualToken(e.target.value)}
+                                placeholder="Paste your OAuth 2.0 Access Token here..."
+                                className="w-full h-24 p-2 rounded-lg border border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all resize-none text-sm font-mono"
+                            />
+                        </div>
+                        <button
+                            onClick={handleAuthClick}
+                            disabled={!manualToken.trim()}
+                            className={`w-full text-white font-bold py-3 px-4 rounded-xl shadow-md flex items-center justify-center gap-3 transition-all mb-4 ${!manualToken.trim() ? 'bg-gray-300' : 'bg-indigo-600 hover:bg-indigo-700'}`}
+                        >
+                            <Key className="w-5 h-5" />
+                            Set Manual Token
+                        </button>
+                    </>
+                )}
 
                 {/* DIAGNOSTIC EXPERT */}
-                <div className="mt-4 bg-amber-50 border border-amber-200 rounded-lg p-4">
-                  <div className="flex items-start cursor-pointer" onClick={() => setShowTroubleshoot(!showTroubleshoot)}>
-                    <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5 mr-2 flex-shrink-0" />
-                    <div className="flex-1">
-                      <h4 className="text-sm font-bold text-amber-900">
-                        Diagnostic de l'erreur "storagerelay" ou "400"
-                      </h4>
-                      <p className="text-xs text-amber-800 mt-1">
-                        Si vous voyez <code>redirect_uri=storagerelay...</code>, vérifiez ces 3 points.
-                      </p>
+                {authMode === 'oauth' && (
+                    <div className="mt-4 bg-amber-50 border border-amber-200 rounded-lg p-4">
+                      <div className="flex items-start cursor-pointer" onClick={() => setShowTroubleshoot(!showTroubleshoot)}>
+                        <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5 mr-2 flex-shrink-0" />
+                        <div className="flex-1">
+                          <h4 className="text-sm font-bold text-amber-900">
+                            Diagnostic de l'erreur "storagerelay" ou "400"
+                          </h4>
+                          <p className="text-xs text-amber-800 mt-1">
+                            Si vous voyez <code>redirect_uri=storagerelay...</code>, vérifiez ces 3 points.
+                          </p>
+                        </div>
+                        <ArrowRight className={`w-4 h-4 text-amber-600 transform transition-transform ${showTroubleshoot ? 'rotate-90' : ''}`} />
+                      </div>
+
+                      {showTroubleshoot && (
+                        <div className="mt-3 pt-3 border-t border-amber-200 text-sm text-amber-900 space-y-4">
+
+                          <div className="flex items-start gap-3 bg-white p-3 rounded border border-amber-100">
+                            <div className="min-w-[20px] font-bold text-amber-600 mt-0.5">1</div>
+                            <div>
+                              <strong className="block text-gray-900">L'URL est incorrecte</strong>
+                              <span className="text-gray-600 text-xs">Copiez cette URL exacte et ajoutez-la dans "Origines JavaScript autorisées" :</span>
+                              <div className="flex items-center mt-2 gap-2">
+                                <code className="flex-1 bg-gray-100 p-2 rounded text-xs font-mono break-all select-all border border-gray-300">
+                                  {currentOrigin}
+                                </code>
+                                <button onClick={() => navigator.clipboard.writeText(currentOrigin)} className="p-2 hover:bg-gray-100 rounded text-amber-600" title="Copier">
+                                  <Key className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-start gap-3">
+                            <div className="min-w-[20px] font-bold text-amber-600 mt-0.5">2</div>
+                            <div>
+                              <strong className="block text-gray-900">Le "/" de fin (Trailing Slash)</strong>
+                              <span className="text-gray-600 text-xs">Vérifiez dans Google Cloud que l'URL ne finit PAS par <code>/</code>.</span>
+                              <div className="mt-1 text-xs">
+                                <span className="text-red-500 mr-2">❌ ...webcontainer.io/</span>
+                                <span className="text-green-600 font-bold">✅ ...webcontainer.io</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-start gap-3">
+                            <div className="min-w-[20px] font-bold text-amber-600 mt-0.5">3</div>
+                            <div>
+                              <div className="flex items-center gap-1">
+                                <strong className="text-gray-900">Cookies Tiers bloqués</strong>
+                                <Cookie className="w-3 h-3 text-gray-400" />
+                              </div>
+                              <span className="text-gray-600 text-xs">
+                                Si vous utilisez <strong>Brave</strong>, <strong>Safari</strong> ou la <strong>Navigation Privée</strong>, l'authentification Google peut échouer (erreur <code>storagerelay</code>). Essayez sur Chrome standard.
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="text-xs text-center text-amber-700 italic border-t border-amber-200 pt-2 mt-2">
+                            Après modification dans Google Cloud, attendez 5 minutes (propagation DNS).
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    <ArrowRight className={`w-4 h-4 text-amber-600 transform transition-transform ${showTroubleshoot ? 'rotate-90' : ''}`} />
-                  </div>
-
-                  {showTroubleshoot && (
-                    <div className="mt-3 pt-3 border-t border-amber-200 text-sm text-amber-900 space-y-4">
-
-                      <div className="flex items-start gap-3 bg-white p-3 rounded border border-amber-100">
-                        <div className="min-w-[20px] font-bold text-amber-600 mt-0.5">1</div>
-                        <div>
-                          <strong className="block text-gray-900">L'URL est incorrecte</strong>
-                          <span className="text-gray-600 text-xs">Copiez cette URL exacte et ajoutez-la dans "Origines JavaScript autorisées" :</span>
-                          <div className="flex items-center mt-2 gap-2">
-                            <code className="flex-1 bg-gray-100 p-2 rounded text-xs font-mono break-all select-all border border-gray-300">
-                              {currentOrigin}
-                            </code>
-                            <button onClick={() => navigator.clipboard.writeText(currentOrigin)} className="p-2 hover:bg-gray-100 rounded text-amber-600" title="Copier">
-                              <Key className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex items-start gap-3">
-                        <div className="min-w-[20px] font-bold text-amber-600 mt-0.5">2</div>
-                        <div>
-                          <strong className="block text-gray-900">Le "/" de fin (Trailing Slash)</strong>
-                          <span className="text-gray-600 text-xs">Vérifiez dans Google Cloud que l'URL ne finit PAS par <code>/</code>.</span>
-                          <div className="mt-1 text-xs">
-                            <span className="text-red-500 mr-2">❌ ...webcontainer.io/</span>
-                            <span className="text-green-600 font-bold">✅ ...webcontainer.io</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex items-start gap-3">
-                        <div className="min-w-[20px] font-bold text-amber-600 mt-0.5">3</div>
-                        <div>
-                          <div className="flex items-center gap-1">
-                            <strong className="text-gray-900">Cookies Tiers bloqués</strong>
-                            <Cookie className="w-3 h-3 text-gray-400" />
-                          </div>
-                          <span className="text-gray-600 text-xs">
-                            Si vous utilisez <strong>Brave</strong>, <strong>Safari</strong> ou la <strong>Navigation Privée</strong>, l'authentification Google peut échouer (erreur <code>storagerelay</code>). Essayez sur Chrome standard.
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="text-xs text-center text-amber-700 italic border-t border-amber-200 pt-2 mt-2">
-                        Après modification dans Google Cloud, attendez 5 minutes (propagation DNS).
-                      </div>
-                    </div>
-                  )}
-                </div>
-
+                )}
               </div>
             ) : (
               <div className="w-full">
